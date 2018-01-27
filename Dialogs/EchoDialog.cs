@@ -27,6 +27,11 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         {
             var message = await argument;
 
+            if (!context.ConversationData.ContainsKey("fistTime"))
+            {
+                context.ConversationData.SetValue("fistTime",false);
+                await context.PostAsync("Ciao, questa è la tua prima volta, inviami una foto e vedrai :D");
+            }
             //if (message.Text == "reset")
             //{
             //    PromptDialog.Confirm(
@@ -62,9 +67,28 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                    VisionResponse vr= await MakePredictionRequest(await responseMessage.Content.ReadAsByteArrayAsync());
 
                     string response = "";
-                    foreach (var prediction in vr.Predictions)
+                    //foreach (var prediction in vr.Predictions)
+                    //{
+
+                    //    response += prediction.Tag + ": " + prediction.Probability+" ";
+                    //}
+                    VisionResponse.Prediction predictionArrosticini = vr.Predictions.FirstOrDefault(x => x.Tag == "arrosticini");
+                    if (predictionArrosticini!=null && predictionArrosticini.Probability > 0.9)
                     {
-                        response += prediction.Tag + ": " + prediction.Probability+" ";
+                        response = "Complimenti, ho trovato degli arrosticini";
+                    }
+                    else
+                    {
+                        VisionResponse.Prediction predictionPecora = vr.Predictions.FirstOrDefault(x => x.Tag == "pecora");
+                        if (predictionPecora!=null && predictionPecora.Probability > 0.9)
+                        {
+                            response = "Non sono arrosticini ma almeno è una pecora";
+                        }
+                        else
+                        {
+                            response =
+                                "Non vedo arrosticini e nemmeno una pecora, mi dispiace ma non puoi essere abbruzzese!!!";
+                        }
                     }
                     await context.PostAsync(response);
                 }
