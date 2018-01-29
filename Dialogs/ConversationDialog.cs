@@ -8,13 +8,14 @@ using Microsoft.Bot.Builder.Dialogs;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using Newtonsoft.Json;
+using SimpleEchoBot.Helper;
 using SimpleEchoBot.Json;
 
 
 namespace Microsoft.Bot.Sample.SimpleEchoBot
 {
     [Serializable]
-    public class EchoDialog : IDialog<object>
+    public class ConversationDialog : IDialog<object>
     {
         protected int count = 1;
 
@@ -27,25 +28,25 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         {
             var message = await argument;
 
-            if (!context.ConversationData.ContainsKey("fistTime"))
+            if (!context.PrivateConversationData.ContainsKey("username"))
             {
-                context.ConversationData.SetValue("fistTime",false);
+                //context.PrivateConversationData.SetValue("fistTime",false);
                 await context.PostAsync("Ciao, questa è la tua prima volta, inviami una foto e vedrai :D");
+
+                ConversationInfo c=new ConversationInfo();
+                c.ToId = message.From.Id;
+                c.ToName = message.From.Name;
+                c.FromId = message.Recipient.Id;
+                c.FromName = message.Recipient.Name;
+                c.ServiceUrl = message.ServiceUrl;
+                c.ChannelId = message.ChannelId;
+                c.ConversationId = message.Conversation.Id;
+
+                PromptDialog.Text(context, AfterResetAsync, "Come posso chiamarti?");
+                return;
             }
-            //if (message.Text == "reset")
-            //{
-            //    PromptDialog.Confirm(
-            //        context,
-            //        AfterResetAsync,
-            //        "Are you sure you want to reset the count?",
-            //        "Didn't get that!",
-            //        promptStyle: PromptStyle.Auto);
-            //}
-            //else
-            //{
-            //    await context.PostAsync($"{this.count++}: You said {message.Text}");
-            //    context.Wait(MessageReceivedAsync);
-            //}
+
+            String username = context.PrivateConversationData.GetValue<string>("username");
 
             if (message.Attachments != null && message.Attachments.Any())
             {
@@ -75,19 +76,19 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     VisionResponse.Prediction predictionArrosticini = vr.Predictions.FirstOrDefault(x => x.Tag == "arrosticini");
                     if (predictionArrosticini!=null && predictionArrosticini.Probability > 0.9)
                     {
-                        response = "Complimenti, ho trovato degli arrosticini";
+                        response = "Complimenti, "+username+" ho trovato degli arrosticini";
                     }
                     else
                     {
                         VisionResponse.Prediction predictionPecora = vr.Predictions.FirstOrDefault(x => x.Tag == "pecora");
                         if (predictionPecora!=null && predictionPecora.Probability > 0.9)
                         {
-                            response = "Non sono arrosticini ma almeno è una pecora";
+                            response = username+ ", non sono arrosticini ma almeno è una pecora";
                         }
                         else
                         {
                             response =
-                                "Non vedo arrosticini e nemmeno una pecora, mi dispiace ma non puoi essere abbruzzese!!!";
+                                username + ", non vedo arrosticini e nemmeno una pecora, mi dispiace ma non puoi essere abbruzzese!!!";
                         }
                     }
                     await context.PostAsync(response);
@@ -136,20 +137,47 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         }
 
 
-        public async Task AfterResetAsync(IDialogContext context, IAwaitable<bool> argument)
+        public async Task AfterResetAsync(IDialogContext context, IAwaitable<string> argument)
         {
-            var confirm = await argument;
-            if (confirm)
+            var username = await argument;
+            context.PrivateConversationData.SetValue("username", username);
+
+            //Salvo i dati della conversazione
+
+
+            await context.PostAsync("Ciao "+username);
+            
+            
+        }
+
+        public async void sendProactiveMessage(ConversationInfo conversation,String messageText)
+        {
+            // Use the data stored previously to create the required objects.
+            var userAccount = new ChannelAccount(conversation.ToId, conversation.ToName);
+            var botAccount = new ChannelAccount(conversation.FromId, conversation.FromName);
+            var connector = new ConnectorClient(new Uri(conversation.ServiceUrl));
+
+            // Create a new message.
+            IMessageActivity message = Activity.CreateMessageActivity();
+            if (!string.IsNullOrEmpty(conversation.ConversationId) && !string.IsNullOrEmpty(conversation.ChannelId))
             {
-                this.count = 1;
-                await context.PostAsync("Reset count.");
+                // If conversation ID and channel ID was stored previously, use it.
+                message.ChannelId = conversation.ChannelId;
             }
             else
             {
-                await context.PostAsync("Did not reset count.");
+                // Conversation ID was not stored previously, so create a conversation. 
+                // Note: If the user has an existing conversation in a channel, this will likely create a new conversation window.
+                conversation.ConversationId = (await connector.Conversations.CreateDirectConversationAsync(botAccount, userAccount)).Id;
             }
-            context.Wait(MessageReceivedAsync);
-        }
 
+            // Set the address-related properties in the message and send the message.
+            message.From = botAccount;
+            message.Recipient = userAccount;
+            message.Conversation = new ConversationAccount(id: conversation.ConversationId);
+            message.Text = messageText;
+            message.Locale = "en-us";
+            await connector.Conversations.SendToConversationAsync((Activity)message);
+        }
     }
 }
