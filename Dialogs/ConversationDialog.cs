@@ -118,7 +118,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             client.DefaultRequestHeaders.Add("Prediction-Key", "c48624aef0f349c482b86c13c2561d64");
 
             // Prediction URL - replace this example URL with your valid prediction URL.
-            string url = "https://southcentralus.api.cognitive.microsoft.com/customvision/v1.1/Prediction/7186da44-ab8c-4d12-98ab-346236765c26/image?iterationId=c95bbbe1-7259-41bc-81a1-22ef0898a95c";
+            string url = "https://southcentralus.api.cognitive.microsoft.com/customvision/v1.1/Prediction/7186da44-ab8c-4d12-98ab-346236765c26/image?iterationId=26d706c5-0b2f-46c3-83b6-3e9d11beaf71";
 
             HttpResponseMessage response;
 
@@ -145,7 +145,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             //Salvo i dati della conversazione
 
 
-            await context.PostAsync("Ciao "+username);
+            await context.PostAsync("Ciao "+username +" quando vuoi io sono qui");
             
             
         }
